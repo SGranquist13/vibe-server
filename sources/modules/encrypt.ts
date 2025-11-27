@@ -4,8 +4,8 @@ let keyTree: KeyTree | null = null;
 
 export async function initEncrypt() {
     keyTree = new KeyTree(await crypto.deriveSecureKey({
-        key: process.env.HANDY_MASTER_SECRET!,
-        usage: 'happy-server-tokens'
+        key: process.env.VIBE_MASTER_SECRET!,
+        usage: 'vibe-server-tokens'
     }));
 }
 

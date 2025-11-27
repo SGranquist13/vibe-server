@@ -1,11 +1,11 @@
-# Handy Server - Development Guidelines
+# Vibe Server - Development Guidelines
 
-This document contains the development guidelines and instructions for the Happy Server project. This guide OVERRIDES any default behaviors and MUST be followed exactly.
+This document contains the development guidelines and instructions for the Vibe Server project. This guide OVERRIDES any default behaviors and MUST be followed exactly.
 
 ## Project Overview
 
-**Name**: happy-server  
-**Repository**: https://github.com/slopus/happy-server.git  
+**Name**: vibe-server  
+**Repository**: https://github.com/your-username/vibe-on-the-go.git  
 **License**: MIT  
 **Language**: TypeScript  
 **Runtime**: Node.js 20  
@@ -208,8 +208,8 @@ The project includes a multi-stage Dockerfile:
 #### Environment Variables
 - CLI: Use `yarn dev:local-server` (NOT `yarn dev`) to load `.env.dev-local-server`
 - Server: Use `yarn dev` to start with proper env files
-- **Tell**: Wrong server URL = check `HAPPY_SERVER_URL` env var
-- **Tell**: Wrong home dir = check `HAPPY_HOME_DIR` (should be `~/.happy-dev` for local)
+- **Tell**: Wrong server URL = check `VIBE_SERVER_URL` env var
+- **Tell**: Wrong home dir = check `VIBE_HOME_DIR` (should be `~/.vibe` for local)
 
 ### Quick Diagnostic Commands
 

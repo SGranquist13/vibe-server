@@ -21,6 +21,7 @@ import { enableAuthentication } from "./utils/enableAuthentication";
 import { userRoutes } from "./routes/userRoutes";
 import { feedRoutes } from "./routes/feedRoutes";
 import { kvRoutes } from "./routes/kvRoutes";
+import { integrationReleaseNotesRoutes } from "./routes/integrationReleaseNotesRoutes";
 
 export async function startApi() {
 
@@ -34,11 +35,11 @@ export async function startApi() {
     });
     app.register(import('@fastify/cors'), {
         origin: '*',
-        allowedHeaders: '*',
+        allowedHeaders: ['Content-Type', 'Authorization'],
         methods: ['GET', 'POST', 'DELETE']
     });
     app.get('/', function (request, reply) {
-        reply.send('Welcome to Happy Server!');
+        reply.send('Welcome to Vibe Server!');
     });
 
     // Create typed provider
@@ -66,6 +67,7 @@ export async function startApi() {
     userRoutes(typed);
     feedRoutes(typed);
     kvRoutes(typed);
+    integrationReleaseNotesRoutes(typed);
 
     // Start HTTP 
     const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3005;

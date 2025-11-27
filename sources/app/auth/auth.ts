@@ -26,24 +26,24 @@ class AuthModule {
         log({ module: 'auth' }, 'Initializing auth module...');
         
         const generator = await privacyKit.createPersistentTokenGenerator({
-            service: 'handy',
-            seed: process.env.HANDY_MASTER_SECRET!
+            service: 'vibe',
+            seed: process.env.VIBE_MASTER_SECRET!
         });
 
         
         const verifier = await privacyKit.createPersistentTokenVerifier({
-            service: 'handy',
+            service: 'vibe',
             publicKey: generator.publicKey
         });
         
         const githubGenerator = await privacyKit.createEphemeralTokenGenerator({
-            service: 'github-happy',
-            seed: process.env.HANDY_MASTER_SECRET!,
+            service: 'github-vibe',
+            seed: process.env.VIBE_MASTER_SECRET!,
             ttl: 5 * 60 * 1000 // 5 minutes
         });
 
         const githubVerifier = await privacyKit.createEphemeralTokenVerifier({
-            service: 'github-happy',
+            service: 'github-vibe',
             publicKey: githubGenerator.publicKey,
         });
 

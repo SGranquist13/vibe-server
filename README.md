@@ -1,33 +1,157 @@
-# Happy Server
+<div align="center">
+  <h1>Vibe Server</h1>
+  
+  <p><strong>Zero-knowledge sync server for Vibe on the Go</strong></p>
+  
+  <p>
+    Encrypted relay for AI coding sessions. <br/>
+    Stores encrypted blobs — <strong>cannot read your data</strong>.
+  </p>
+</div>
 
-Minimal backend for open-source end-to-end encrypted Claude Code clients.
+---
 
-## What is Happy?
+## ✨ Features
 
-Happy Server is the synchronization backbone for secure Claude Code clients. It enables multiple devices to share encrypted conversations while maintaining complete privacy - the server never sees your messages, only encrypted blobs it cannot read.
+- 🔐 **Zero-Knowledge** — Stores encrypted data but cannot decrypt it
+- ⚡ **Real-time Sync** — WebSocket-based synchronization
+- 📱 **Multi-device** — Seamless session management
+- 🔔 **Push Notifications** — Encrypted notifications (content invisible to server)
+- 🔑 **Cryptographic Auth** — No passwords, only signatures
+- 🌐 **Distributed Ready** — Built to scale horizontally
 
-## Features
+---
 
-- 🔐 **Zero Knowledge** - The server stores encrypted data but has no ability to decrypt it
-- 🎯 **Minimal Surface** - Only essential features for secure sync, nothing more  
-- 🕵️ **Privacy First** - No analytics, no tracking, no data mining
-- 📖 **Open Source** - Transparent implementation you can audit and self-host
-- 🔑 **Cryptographic Auth** - No passwords stored, only public key signatures
-- ⚡ **Real-time Sync** - WebSocket-based synchronization across all your devices
-- 📱 **Multi-device** - Seamless session management across phones, tablets, and computers
-- 🔔 **Push Notifications** - Notify when Claude Code finishes tasks or needs permissions (encrypted, we can't see the content)
-- 🌐 **Distributed Ready** - Built to scale horizontally when needed
+## 🚀 Quick Start
 
-## How It Works
+### Prerequisites
 
-Your Claude Code clients generate encryption keys locally and use Happy Server as a secure relay. Messages are end-to-end encrypted before leaving your device. The server's job is simple: store encrypted blobs and sync them between your devices in real-time.
+- Node.js 20+
+- Docker & Docker Compose
+- PostgreSQL, Redis (via Docker)
 
-## Hosting
+### Setup
 
-**You don't need to self-host!** Our free cloud Happy Server at `happy-api.slopus.com` is just as secure as running your own. Since all data is end-to-end encrypted before it reaches our servers, we literally cannot read your messages even if we wanted to. The encryption happens on your device, and only you have the keys.
+```bash
+# 1. Start infrastructure
+docker-compose up -d
 
-That said, Happy Server is open source and self-hostable if you prefer running your own infrastructure. The security model is identical whether you use our servers or your own.
+# 2. Configure environment
+cp .env.example .env
+# Edit .env and set VIBE_MASTER_SECRET (generate with: openssl rand -hex 32)
 
-## License
+# 3. Install dependencies
+yarn install
 
-MIT - Use it, modify it, deploy it anywhere.
+# 4. Run migrations
+yarn migrate
+
+# 5. Start server
+yarn dev
+```
+
+Server runs at `http://localhost:3005`
+
+---
+
+## ⚙️ Configuration
+
+### Required Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string |
+| `VIBE_MASTER_SECRET` | Master encryption key (32-byte hex) |
+
+### Optional Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3005` | Server port |
+| `S3_*` | - | MinIO/S3 configuration |
+| `GITHUB_*` | - | GitHub OAuth integration |
+| `ELEVENLABS_API_KEY` | - | Voice synthesis |
+
+See `.env.example` for all options.
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────┐     ┌─────────────┐
+│   Mobile    │◄───►│   Server    │◄───►│     CLI     │
+│     App     │     │ (this repo) │     │  (terminal) │
+└─────────────┘     └─────────────┘     └─────────────┘
+                          │
+                    ┌─────┴─────┐
+                    │           │
+               PostgreSQL    Redis
+                (data)      (pubsub)
+```
+
+**How it works:**
+
+1. CLI encrypts session data client-side
+2. Server stores encrypted blobs
+3. Mobile app fetches & decrypts locally
+4. Real-time sync via WebSocket
+
+---
+
+## 🛠️ Development
+
+```bash
+# Start development server
+yarn dev
+
+# Run migrations
+yarn migrate
+
+# Run tests
+yarn test
+
+# Type check
+yarn typecheck
+```
+
+### API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Health check |
+| `POST /api/auth/*` | Authentication |
+| `POST /api/sessions/*` | Session management |
+| `POST /api/machines/*` | Machine management |
+| `WS /socket.io` | Real-time sync |
+
+---
+
+## 🐳 Docker
+
+```bash
+# Build image
+docker build -t vibe-server .
+
+# Run container
+docker run -p 3005:3005 \
+  -e DATABASE_URL=... \
+  -e REDIS_URL=... \
+  -e VIBE_MASTER_SECRET=... \
+  vibe-server
+```
+
+---
+
+## 📖 Documentation
+
+- [**Main README**](../README.md) — Full project overview
+- [**Quick Start**](../QUICK_START.md) — Complete setup guide
+- [**Server Development Guide**](CLAUDE.md) — Detailed development docs
+
+---
+
+## 📄 License
+
+MIT License

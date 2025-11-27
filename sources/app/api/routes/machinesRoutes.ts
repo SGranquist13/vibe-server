@@ -22,86 +22,110 @@ export function machinesRoutes(app: Fastify) {
         const userId = request.userId;
         const { id, metadata, daemonState, dataEncryptionKey } = request.body;
 
-        // Check if machine exists (like sessions do)
-        const machine = await db.machine.findFirst({
-            where: {
-                accountId: userId,
-                id: id
+        try {
+            // Ensure account exists (it should, but handle edge case where token is valid but account was deleted)
+            const account = await db.account.findUnique({
+                where: { id: userId }
+            });
+
+            if (!account) {
+                log({ module: 'machines', machineId: id, userId }, `Account ${userId} does not exist in database`);
+                return reply.code(404).send({ 
+                    error: 'Account not found',
+                    message: 'The account associated with this token does not exist. Please re-authenticate.'
+                });
             }
-        });
 
-        if (machine) {
-            // Machine exists - just return it
-            log({ module: 'machines', machineId: id, userId }, 'Found existing machine');
-            return reply.send({
-                machine: {
-                    id: machine.id,
-                    metadata: machine.metadata,
-                    metadataVersion: machine.metadataVersion,
-                    daemonState: machine.daemonState,
-                    daemonStateVersion: machine.daemonStateVersion,
-                    dataEncryptionKey: machine.dataEncryptionKey ? Buffer.from(machine.dataEncryptionKey).toString('base64') : null,
-                    active: machine.active,
-                    activeAt: machine.lastActiveAt.getTime(),  // Return as activeAt for API consistency
-                    createdAt: machine.createdAt.getTime(),
-                    updatedAt: machine.updatedAt.getTime()
-                }
-            });
-        } else {
-            // Create new machine
-            log({ module: 'machines', machineId: id, userId }, 'Creating new machine');
-
-            const newMachine = await db.machine.create({
-                data: {
-                    id,
+            // Check if machine exists (like sessions do)
+            const machine = await db.machine.findFirst({
+                where: {
                     accountId: userId,
-                    metadata,
-                    metadataVersion: 1,
-                    daemonState: daemonState || null,
-                    daemonStateVersion: daemonState ? 1 : 0,
-                    dataEncryptionKey: dataEncryptionKey ? new Uint8Array(Buffer.from(dataEncryptionKey, 'base64')) : undefined,
-                    // Default to offline - in case the user does not start daemon
-                    active: false,
-                    // lastActiveAt and activeAt defaults to now() in schema
+                    id: id
                 }
             });
 
-            // Emit both new-machine and update-machine events for backward compatibility
-            const updSeq1 = await allocateUserSeq(userId);
-            const updSeq2 = await allocateUserSeq(userId);
-            
-            // Emit new-machine event with all data including dataEncryptionKey
-            const newMachinePayload = buildNewMachineUpdate(newMachine, updSeq1, randomKeyNaked(12));
-            eventRouter.emitUpdate({
-                userId,
-                payload: newMachinePayload
-            });
-            
-            // Emit update-machine event for backward compatibility (without dataEncryptionKey)
-            const machineMetadata = {
-                version: 1,
-                value: metadata
-            };
-            const updatePayload = buildUpdateMachineUpdate(newMachine.id, updSeq2, randomKeyNaked(12), machineMetadata);
-            eventRouter.emitUpdate({
-                userId,
-                payload: updatePayload
-            });
+            if (machine) {
+                // Machine exists - just return it
+                log({ module: 'machines', machineId: id, userId }, 'Found existing machine');
+                return reply.send({
+                    machine: {
+                        id: machine.id,
+                        metadata: machine.metadata,
+                        metadataVersion: machine.metadataVersion,
+                        daemonState: machine.daemonState,
+                        daemonStateVersion: machine.daemonStateVersion,
+                        dataEncryptionKey: machine.dataEncryptionKey ? Buffer.from(machine.dataEncryptionKey).toString('base64') : null,
+                        active: machine.active,
+                        activeAt: machine.lastActiveAt.getTime(),  // Return as activeAt for API consistency
+                        createdAt: machine.createdAt.getTime(),
+                        updatedAt: machine.updatedAt.getTime()
+                    }
+                });
+            } else {
+                // Create new machine
+                log({ module: 'machines', machineId: id, userId }, 'Creating new machine');
 
-            return reply.send({
-                machine: {
-                    id: newMachine.id,
-                    metadata: newMachine.metadata,
-                    metadataVersion: newMachine.metadataVersion,
-                    daemonState: newMachine.daemonState,
-                    daemonStateVersion: newMachine.daemonStateVersion,
-                    dataEncryptionKey: newMachine.dataEncryptionKey ? Buffer.from(newMachine.dataEncryptionKey).toString('base64') : null,
-                    active: newMachine.active,
-                    activeAt: newMachine.lastActiveAt.getTime(),  // Return as activeAt for API consistency
-                    createdAt: newMachine.createdAt.getTime(),
-                    updatedAt: newMachine.updatedAt.getTime()
-                }
-            });
+                const newMachine = await db.machine.create({
+                    data: {
+                        id,
+                        accountId: userId,
+                        metadata,
+                        metadataVersion: 1,
+                        daemonState: daemonState || null,
+                        daemonStateVersion: daemonState ? 1 : 0,
+                        dataEncryptionKey: dataEncryptionKey ? new Uint8Array(Buffer.from(dataEncryptionKey, 'base64')) : undefined,
+                        // Default to offline - in case the user does not start daemon
+                        active: false,
+                        // lastActiveAt and activeAt defaults to now() in schema
+                    }
+                });
+
+                // Emit both new-machine and update-machine events for backward compatibility
+                const updSeq1 = await allocateUserSeq(userId);
+                const updSeq2 = await allocateUserSeq(userId);
+                
+                // Emit new-machine event with all data including dataEncryptionKey
+                const newMachinePayload = buildNewMachineUpdate(newMachine, updSeq1, randomKeyNaked(12));
+                eventRouter.emitUpdate({
+                    userId,
+                    payload: newMachinePayload
+                });
+                
+                // Emit update-machine event for backward compatibility (without dataEncryptionKey)
+                const machineMetadata = {
+                    version: 1,
+                    value: metadata
+                };
+                const updatePayload = buildUpdateMachineUpdate(newMachine.id, updSeq2, randomKeyNaked(12), machineMetadata);
+                eventRouter.emitUpdate({
+                    userId,
+                    payload: updatePayload
+                });
+
+                return reply.send({
+                    machine: {
+                        id: newMachine.id,
+                        metadata: newMachine.metadata,
+                        metadataVersion: newMachine.metadataVersion,
+                        daemonState: newMachine.daemonState,
+                        daemonStateVersion: newMachine.daemonStateVersion,
+                        dataEncryptionKey: newMachine.dataEncryptionKey ? Buffer.from(newMachine.dataEncryptionKey).toString('base64') : null,
+                        active: newMachine.active,
+                        activeAt: newMachine.lastActiveAt.getTime(),  // Return as activeAt for API consistency
+                        createdAt: newMachine.createdAt.getTime(),
+                        updatedAt: newMachine.updatedAt.getTime()
+                    }
+                });
+            }
+        } catch (error: any) {
+            log({ 
+                module: 'machines', 
+                machineId: id, 
+                userId,
+                error: error.message,
+                stack: error.stack
+            }, `Error creating/fetching machine: ${error.message}`);
+            throw error; // Re-throw to let error handler format the response
         }
     });
 
