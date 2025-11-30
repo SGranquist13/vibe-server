@@ -26,29 +26,44 @@
 
 ### Prerequisites
 
-- Node.js 20+
-- Docker & Docker Compose
-- PostgreSQL, Redis (via Docker)
+- **Node.js 20+** and npm/yarn
+- **Docker & Docker Compose** (for PostgreSQL and Redis)
+- **Git** for cloning the repository
 
-### Setup
+### Initial Setup
 
-```bash
-# 1. Start infrastructure
-docker-compose up -d
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/SGranquist13/vibe-server.git
+   cd vibe-server
+   ```
 
-# 2. Configure environment
-cp .env.example .env
-# Edit .env and set VIBE_MASTER_SECRET (generate with: openssl rand -hex 32)
+2. **Start infrastructure services:**
+   ```bash
+   # From the project root (where docker-compose.yml is located)
+   docker-compose up -d
+   ```
 
-# 3. Install dependencies
-yarn install
+3. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env and set VIBE_MASTER_SECRET (generate with: openssl rand -hex 32)
+   ```
 
-# 4. Run migrations
-yarn migrate
+4. **Install dependencies:**
+   ```bash
+   yarn install
+   ```
 
-# 5. Start server
-yarn dev
-```
+5. **Run database migrations:**
+   ```bash
+   yarn migrate
+   ```
+
+6. **Start the development server:**
+   ```bash
+   yarn dev
+   ```
 
 Server runs at `http://localhost:3005`
 
@@ -102,11 +117,19 @@ See `.env.example` for all options.
 
 ## 🛠️ Development
 
+### Prerequisites
+
+- **Node.js 20+** and npm/yarn
+- **Docker & Docker Compose** (for local PostgreSQL and Redis)
+- **Git** for cloning the repository
+
+### Development Workflow
+
 ```bash
 # Start development server
 yarn dev
 
-# Run migrations
+# Run database migrations
 yarn migrate
 
 # Run tests
@@ -114,6 +137,20 @@ yarn test
 
 # Type check
 yarn typecheck
+```
+
+### Project Structure
+
+```
+server/
+├── sources/
+│   ├── app/           # Application logic
+│   │   ├── api/       # API routes and handlers
+│   │   └── auth/      # Authentication logic
+│   ├── storage/       # Database and storage utilities
+│   └── modules/       # Reusable modules
+├── prisma/            # Database schema and migrations
+└── deploy/            # Deployment configurations
 ```
 
 ### API Endpoints
@@ -146,9 +183,15 @@ docker run -p 3005:3005 \
 
 ## 📖 Documentation
 
-- [**Main README**](../README.md) — Full project overview
-- [**Quick Start**](../QUICK_START.md) — Complete setup guide
+- [**Main Project README**](../README.md) — Full project overview
+- [**Quick Start Guide**](../QUICK_START.md) — Complete setup instructions
 - [**Server Development Guide**](CLAUDE.md) — Detailed development docs
+
+### Related Repositories
+
+- [**Mobile App**](https://github.com/SGranquist13/vibe-mobile) — React Native mobile app
+- [**CLI**](https://github.com/SGranquist13/vibe-cli) — Command-line wrapper
+- [**Main Repository**](https://github.com/SGranquist13/votg) — Meta-repository
 
 ---
 
