@@ -74,5 +74,9 @@
       ]
     }
   },
-  "include": ["sources/**/*"]
+  "include": ["sources/**/*"],
+  "exclude": [
+    "sources/app/cloud/runner/**/*",
+    "sources/app/temp-runner-files/**/*"
+  ]
 }

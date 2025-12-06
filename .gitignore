@@ -5,8 +5,9 @@ dist
 .minio
 
 .env.local
-.env
+.env*
 
 .logs/
 
 .claude/
+*.dev
