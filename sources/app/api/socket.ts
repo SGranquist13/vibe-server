@@ -12,6 +12,8 @@ import { sessionUpdateHandler } from "./socket/sessionUpdateHandler";
 import { machineUpdateHandler } from "./socket/machineUpdateHandler";
 import { artifactUpdateHandler } from "./socket/artifactUpdateHandler";
 import { accessKeyHandler } from "./socket/accessKeyHandler";
+import { setupCloudEndpointHandlers } from "@/app/cloud/handlers";
+import { setSocketIOInstance } from "./routes/promptRoutes";
 
 export function startSocket(app: Fastify) {
     const io = new Server(app.server, {
@@ -35,7 +37,7 @@ export function startSocket(app: Fastify) {
     io.on("connection", async (socket) => {
         log({ module: 'websocket' }, `New connection attempt from socket: ${socket.id}`);
         const token = socket.handshake.auth.token as string;
-        const clientType = socket.handshake.auth.clientType as 'session-scoped' | 'user-scoped' | 'machine-scoped' | undefined;
+        const clientType = socket.handshake.auth.clientType as 'session-scoped' | 'user-scoped' | 'machine-scoped' | 'cloud-endpoint' | undefined;
         const sessionId = socket.handshake.auth.sessionId as string | undefined;
         const machineId = socket.handshake.auth.machineId as string | undefined;
 
@@ -46,108 +48,146 @@ export function startSocket(app: Fastify) {
             return;
         }
 
-        // Validate session-scoped clients have sessionId
-        if (clientType === 'session-scoped' && !sessionId) {
-            log({ module: 'websocket' }, `Session-scoped client missing sessionId`);
-            socket.emit('error', { message: 'Session ID required for session-scoped clients' });
-            socket.disconnect();
-            return;
+        // Handle cloud endpoint authentication (special case)
+        // Cloud endpoints bypass normal user authentication
+        let isCloudEndpoint = false;
+        if (clientType === 'cloud-endpoint') {
+            // Cloud endpoints use auth tokens generated when spawning
+            // Check if this token matches a pending endpoint
+            const { getCloudSessionManager } = await import('@/app/cloud/handlers');
+            const manager = getCloudSessionManager();
+            const endpointId = manager.findEndpointByToken(token);
+            
+            if (!endpointId) {
+                log({ module: 'websocket' }, `Invalid cloud endpoint token`);
+                socket.emit('error', { message: 'Invalid cloud endpoint authentication token' });
+                socket.disconnect();
+                return;
+            }
+
+            // Cloud endpoint authenticated - allow it to proceed
+            // The cloud endpoint handlers will handle registration
+            log({ module: 'websocket' }, `Cloud endpoint authenticated: ${endpointId}`);
+            // Store endpoint ID on socket for later use
+            (socket as any).cloudEndpointId = endpointId;
+            isCloudEndpoint = true;
+            // Skip normal auth flow for cloud endpoints
         }
 
-        // Validate machine-scoped clients have machineId
-        if (clientType === 'machine-scoped' && !machineId) {
-            log({ module: 'websocket' }, `Machine-scoped client missing machineId`);
-            socket.emit('error', { message: 'Machine ID required for machine-scoped clients' });
-            socket.disconnect();
-            return;
-        }
+        // Skip normal auth for cloud endpoints
+        if (!isCloudEndpoint) {
+            // Validate session-scoped clients have sessionId
+            if (clientType === 'session-scoped' && !sessionId) {
+                log({ module: 'websocket' }, `Session-scoped client missing sessionId`);
+                socket.emit('error', { message: 'Session ID required for session-scoped clients' });
+                socket.disconnect();
+                return;
+            }
 
-        const verified = await auth.verifyToken(token);
-        if (!verified) {
-            log({ module: 'websocket' }, `Invalid token provided`);
-            socket.emit('error', { message: 'Invalid authentication token' });
-            socket.disconnect();
-            return;
-        }
+            // Validate machine-scoped clients have machineId
+            if (clientType === 'machine-scoped' && !machineId) {
+                log({ module: 'websocket' }, `Machine-scoped client missing machineId`);
+                socket.emit('error', { message: 'Machine ID required for machine-scoped clients' });
+                socket.disconnect();
+                return;
+            }
 
-        const userId = verified.userId;
-        log({ module: 'websocket' }, `Token verified: ${userId}, clientType: ${clientType || 'user-scoped'}, sessionId: ${sessionId || 'none'}, machineId: ${machineId || 'none'}, socketId: ${socket.id}`);
+            const verified = await auth.verifyToken(token);
+            if (!verified) {
+                log({ module: 'websocket' }, `Invalid token provided`);
+                socket.emit('error', { message: 'Invalid authentication token' });
+                socket.disconnect();
+                return;
+            }
 
-        // Store connection based on type
-        const metadata = { clientType: clientType || 'user-scoped', sessionId, machineId };
-        let connection: ClientConnection;
-        if (metadata.clientType === 'session-scoped' && sessionId) {
-            connection = {
-                connectionType: 'session-scoped',
-                socket,
-                userId,
-                sessionId
-            };
-        } else if (metadata.clientType === 'machine-scoped' && machineId) {
-            connection = {
-                connectionType: 'machine-scoped',
-                socket,
-                userId,
-                machineId
-            };
-        } else {
-            connection = {
-                connectionType: 'user-scoped',
-                socket,
-                userId
-            };
-        }
-        eventRouter.addConnection(userId, connection);
-        incrementWebSocketConnection(connection.connectionType);
+            const userId = verified.userId;
+            log({ module: 'websocket' }, `Token verified: ${userId}, clientType: ${clientType || 'user-scoped'}, sessionId: ${sessionId || 'none'}, machineId: ${machineId || 'none'}, socketId: ${socket.id}`);
 
-        // Broadcast daemon online status
-        if (connection.connectionType === 'machine-scoped') {
-            // Broadcast daemon online
-            const machineActivity = buildMachineActivityEphemeral(machineId!, true, Date.now());
-            eventRouter.emitEphemeral({
-                userId,
-                payload: machineActivity,
-                recipientFilter: { type: 'user-scoped-only' }
-            });
-        }
+            // Store connection based on type
+            const metadata = { clientType: clientType || 'user-scoped', sessionId, machineId };
+            let connection: ClientConnection;
+            if (metadata.clientType === 'session-scoped' && sessionId) {
+                connection = {
+                    connectionType: 'session-scoped',
+                    socket,
+                    userId,
+                    sessionId
+                };
+            } else if (metadata.clientType === 'machine-scoped' && machineId) {
+                connection = {
+                    connectionType: 'machine-scoped',
+                    socket,
+                    userId,
+                    machineId
+                };
+            } else {
+                connection = {
+                    connectionType: 'user-scoped',
+                    socket,
+                    userId
+                };
+            }
+            eventRouter.addConnection(userId, connection);
+            incrementWebSocketConnection(connection.connectionType);
 
-        socket.on('disconnect', () => {
-            websocketEventsCounter.inc({ event_type: 'disconnect' });
-
-            // Cleanup connections
-            eventRouter.removeConnection(userId, connection);
-            decrementWebSocketConnection(connection.connectionType);
-
-            log({ module: 'websocket' }, `User disconnected: ${userId}`);
-
-            // Broadcast daemon offline status
+            // Broadcast daemon online status
             if (connection.connectionType === 'machine-scoped') {
-                const machineActivity = buildMachineActivityEphemeral(connection.machineId, false, Date.now());
+                // Broadcast daemon online
+                const machineActivity = buildMachineActivityEphemeral(machineId!, true, Date.now());
                 eventRouter.emitEphemeral({
                     userId,
                     payload: machineActivity,
                     recipientFilter: { type: 'user-scoped-only' }
                 });
             }
-        });
 
-        // Handlers
-        let userRpcListeners = rpcListeners.get(userId);
-        if (!userRpcListeners) {
-            userRpcListeners = new Map<string, Socket>();
-            rpcListeners.set(userId, userRpcListeners);
+            socket.on('disconnect', () => {
+                websocketEventsCounter.inc({ event_type: 'disconnect' });
+
+                // Cleanup connections
+                eventRouter.removeConnection(userId, connection);
+                decrementWebSocketConnection(connection.connectionType);
+
+                log({ module: 'websocket' }, `User disconnected: ${userId}`);
+
+                // Broadcast daemon offline status
+                if (connection.connectionType === 'machine-scoped') {
+                    const machineActivity = buildMachineActivityEphemeral(connection.machineId, false, Date.now());
+                    eventRouter.emitEphemeral({
+                        userId,
+                        payload: machineActivity,
+                        recipientFilter: { type: 'user-scoped-only' }
+                    });
+                }
+            });
+
+            // Handlers
+            let userRpcListeners = rpcListeners.get(userId);
+            if (!userRpcListeners) {
+                userRpcListeners = new Map<string, Socket>();
+                rpcListeners.set(userId, userRpcListeners);
+            }
+            rpcHandler(userId, socket, userRpcListeners);
+            usageHandler(userId, socket);
+            sessionUpdateHandler(userId, socket, connection);
+            pingHandler(socket);
+            machineUpdateHandler(userId, socket);
+            artifactUpdateHandler(userId, socket);
+            accessKeyHandler(userId, socket);
+
+            // Ready
+            log({ module: 'websocket' }, `User connected: ${userId}`);
+        } else {
+            // Cloud endpoint - minimal setup, handlers registered by setupCloudEndpointHandlers
+            log({ module: 'websocket' }, `Cloud endpoint connected: ${(socket as any).cloudEndpointId}`);
         }
-        rpcHandler(userId, socket, userRpcListeners);
-        usageHandler(userId, socket);
-        sessionUpdateHandler(userId, socket, connection);
-        pingHandler(socket);
-        machineUpdateHandler(userId, socket);
-        artifactUpdateHandler(userId, socket);
-        accessKeyHandler(userId, socket);
-
-        // Ready
-        log({ module: 'websocket' }, `User connected: ${userId}`);
     });
+
+    // Set up cloud endpoint handlers
+    setupCloudEndpointHandlers(io);
+
+    // Set Socket.IO instance for prompt routes
+    setSocketIOInstance(io);
 
     onShutdown('api', async () => {
         await io.close();

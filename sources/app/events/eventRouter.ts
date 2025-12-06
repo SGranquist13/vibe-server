@@ -151,6 +151,9 @@ export type UpdateEvent = {
         value: string | null; // null indicates deletion
         version: number; // -1 for deleted keys
     }>;
+} | {
+    type: 'delete-feed-post';
+    id: string;
 };
 
 // === EPHEMERAL EVENT TYPES (Transient) ===

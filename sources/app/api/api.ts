@@ -22,6 +22,8 @@ import { userRoutes } from "./routes/userRoutes";
 import { feedRoutes } from "./routes/feedRoutes";
 import { kvRoutes } from "./routes/kvRoutes";
 import { integrationReleaseNotesRoutes } from "./routes/integrationReleaseNotesRoutes";
+import { cloudRoutes } from "./routes/cloudRoutes";
+import { promptRoutes } from "./routes/promptRoutes";
 
 export async function startApi() {
 
@@ -68,6 +70,8 @@ export async function startApi() {
     feedRoutes(typed);
     kvRoutes(typed);
     integrationReleaseNotesRoutes(typed);
+    cloudRoutes(typed);
+    promptRoutes(typed);
 
     // Start HTTP 
     const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3005;

@@ -70,8 +70,14 @@ async function fetchGitHubRelease(repo: string): Promise<IntegrationRelease | nu
             throw new Error(`GitHub API error: ${response.status}`);
         }
 
-        const data = await response.json();
-        const version = data.tag_name?.replace(/^v/, '') || data.name;
+        const data = await response.json() as {
+            tag_name?: string;
+            name?: string;
+            body?: string;
+            published_at?: string;
+            html_url?: string;
+        };
+        const version = data.tag_name?.replace(/^v/, '') || data.name || 'unknown';
         const message = data.body || `New release: ${version}`;
         const publishedAt = data.published_at ? new Date(data.published_at) : undefined;
 
@@ -105,7 +111,11 @@ async function fetchNpmRelease(packageName: string): Promise<IntegrationRelease 
             throw new Error(`npm API error: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as {
+            version: string;
+            description?: string;
+            time?: Record<string, string>;
+        };
         const version = data.version;
         const message = data.description || `New version available: ${version}`;
 
@@ -115,7 +125,7 @@ async function fetchNpmRelease(packageName: string): Promise<IntegrationRelease 
             message: message.substring(0, 500),
             type: 'update',
             releaseUrl: `https://www.npmjs.com/package/${packageName}`,
-            publishedAt: data.time ? new Date(data.time[version]) : undefined
+            publishedAt: data.time && data.time[version] ? new Date(data.time[version]) : undefined
         };
     } catch (error) {
         console.error(`[IntegrationReleaseNotes] Error fetching npm release for ${packageName}:`, error);

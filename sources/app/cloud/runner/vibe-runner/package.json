@@ -1,0 +1,21 @@
+{
+  "name": "vibe-cloud-runner",
+  "version": "1.0.0",
+  "description": "Cloud runner for Vibe-on-the-Go E2B sandbox",
+  "type": "module",
+  "scripts": {
+    "e2b:build:dev": "npx tsx build.dev.ts",
+    "e2b:build:prod": "npx tsx build.prod.ts",
+    "start": "npx tsx index.ts"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.3",
+    "dotenv": "^17.2.3",
+    "e2b": "^2.8.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.4.3"
+  }
+}
